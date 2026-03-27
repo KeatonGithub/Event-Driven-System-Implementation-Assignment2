@@ -1,53 +1,64 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using static UnityEditor.SceneView;
 
 public class PlayerMove : MonoBehaviour
 {
+    CharacterController controller;
 
+    public float speed = 6f;
+    public float gravity = -19.62f;
+    public float jumpHeight = 2f;
+    public Transform cam;
+    public float rotationSmoothTime = 0.1f;
+    float turnSmoothVelocity;
 
-    CharacterController Controller; //calling and defining the character controller
+    Vector3 velocity; // Handles falling and jumping
+    bool isGrounded;
 
-    public float Speed; // the players speed
-
-    public Transform Cam; //the cameras position
-
-
-    // Start is called before the first frame update
     void Start()
     {
-
-        Controller = GetComponent<CharacterController>(); //get character controller
-
+        controller = GetComponent<CharacterController>();
     }
 
-    // Update is called once per frame
     void Update()
     {
-
-        float Horizontal = Input.GetAxis("Horizontal") * Speed * Time.deltaTime; //horizontal movement
-        float Vertical = Input.GetAxis("Vertical") * Speed * Time.deltaTime;//vertical movement
-
-        Vector3 Movement = Cam.transform.right * Horizontal + Cam.transform.forward * Vertical; //camera movement
-        Movement.y = 0f; 
-
-
-
-        Controller.Move(Movement);
-
-        if (Movement.magnitude != 0f)
+        // Ground Check
+        // CharacterController has a built-in .isGrounded, but it can be finicky.
+        // We reset velocity when on the ground so gravity doesn't build up infinitely.
+        isGrounded = controller.isGrounded;
+        if (isGrounded && velocity.y < 0)
         {
-            transform.Rotate(Vector3.up * Input.GetAxis("Mouse X") * Cam.GetComponent<CameraMove>().sensivity * Time.deltaTime);
-
-
-            Quaternion CamRotation = Cam.rotation;
-            CamRotation.x = 0f;
-            CamRotation.z = 0f;
-
-            transform.rotation = Quaternion.Lerp(transform.rotation, CamRotation, 0.1f);
-
+            velocity.y = -2f; // Slight downward force to keep the player stuck to the floor
         }
-    }
 
+        //Horizontal Movement
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical");
+        Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
+
+        if (direction.magnitude >= 0.1f)
+        {
+            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
+            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity, rotationSmoothTime);
+            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+
+            Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            controller.Move(moveDir.normalized * speed * Time.deltaTime);
+        }
+
+        //Jumping
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            // The formula for jump velocity is: v = sqrt(jumpHeight * -2 * gravity)
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        }
+
+       //Applying Gravity
+        velocity.y += gravity * Time.deltaTime;
+
+        // We multiply by Time.deltaTime twice (once for velocity, once for Move) 
+        // because this is an acceleration over time.
+        controller.Move(velocity * Time.deltaTime);
+    }
 }

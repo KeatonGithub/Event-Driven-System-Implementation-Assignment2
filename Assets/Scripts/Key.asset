@@ -16,4 +16,4 @@ MonoBehaviour:
   itemName: Key
   itemDescription: A key that unlocks a nearby door
   maxStackSize: 1
-  isConsumable: 0
+  isConsumable: 1
